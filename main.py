@@ -4,11 +4,14 @@ from psycopg.rows import dict_row
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
-
+from sqlalchemy import select
+from database import SessionLocal
+from models import Food
 
 app = FastAPI()
 
-class NewFood(BaseModel):
+
+class FoodCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
     name: str = Field(min_length=1)
@@ -31,15 +34,27 @@ def home():
 
 @app.get("/foods")
 def list_foods(category: str | None = None):
-    with get_conn() as conn:
-        if category is None:
-            return conn.execute(
-                "SELECT id, name, price, category FROM foods ORDER BY id"
-            ).fetchall()
-        return conn.execute(
-            "SELECT id, name, price, category FROM foods WHERE category = %s ORDER BY id",
-            (category.strip().lower(),),
-        ).fetchall()
+    if category:
+        category = category.strip().lower()
+    query = select(Food).order_by(Food.id)
+    if category:
+        query = query.where(Food.category == category)
+
+    with SessionLocal() as session:
+        return session.scalars(query).all()
+
+
+# @app.get("/foods")
+# def list_foods(category: str | None = None):
+#     with get_conn() as conn:
+#         if category is None:
+#             return conn.execute(
+#                 "SELECT id, name, price, category FROM foods ORDER BY id"
+#             ).fetchall()
+#         return conn.execute(
+#             "SELECT id, name, price, category FROM foods WHERE category = %s ORDER BY id",
+#             (category.strip().lower(),),
+#         ).fetchall()
 
 
 @app.get("/foods/{food_id}")
@@ -54,7 +69,7 @@ def get_food(food_id: int):
 
 
 @app.post("/foods")
-def add_food(food: NewFood):
+def add_food(food: FoodCreate):
     with get_conn() as conn:
         result = conn.execute(
             """INSERT INTO foods (name, price, category) 
