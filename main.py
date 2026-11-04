@@ -1,9 +1,5 @@
-import os
-import psycopg
-from psycopg.rows import dict_row
-from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from database import SessionLocal
 from models import Food
@@ -18,13 +14,24 @@ class FoodCreate(BaseModel):
     price: int = Field(ge=0)
     category: str = Field(min_length=1)
 
+    @field_validator("name", "category")
+    @classmethod
+    def collapse_spaces(cls, value: str) -> str:
+        return " ".join(value.split())
 
-load_dotenv()
-DATABASE_URL = os.environ["DATABASE_URL"]
+    @field_validator("category")
+    @classmethod
+    def lowercase_category(cls, value: str) -> str:
+        return value.lower()
 
 
-def get_conn():
-    return psycopg.connect(DATABASE_URL, row_factory=dict_row)
+class FoodRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    price: int
+    category: str
 
 
 @app.get("/")
@@ -32,7 +39,7 @@ def home():
     return {"message": "Hello! The food API is running."}
 
 
-@app.get("/foods")
+@app.get("/foods", response_model=list[FoodRead])
 def list_foods(category: str | None = None):
     if category:
         category = category.strip().lower()
@@ -44,50 +51,28 @@ def list_foods(category: str | None = None):
         return session.scalars(query).all()
 
 
-# @app.get("/foods")
-# def list_foods(category: str | None = None):
-#     with get_conn() as conn:
-#         if category is None:
-#             return conn.execute(
-#                 "SELECT id, name, price, category FROM foods ORDER BY id"
-#             ).fetchall()
-#         return conn.execute(
-#             "SELECT id, name, price, category FROM foods WHERE category = %s ORDER BY id",
-#             (category.strip().lower(),),
-#         ).fetchall()
-
-
-@app.get("/foods/{food_id}")
+@app.get("/foods/{food_id}", response_model=FoodRead)
 def get_food(food_id: int):
-    with get_conn() as conn:
-        result = conn.execute(
-            "SELECT id, name, price, category FROM foods WHERE id = %s", (food_id,)
-        ).fetchone()
-    if result is None:
+    with SessionLocal() as session:
+        food = session.get(Food, food_id)
+    if food is None:
         raise HTTPException(status_code=404, detail="Food not found")
-    return result
+    return food
 
 
-@app.post("/foods")
+@app.post("/foods", response_model=FoodRead, status_code=201)
 def add_food(food: FoodCreate):
-    with get_conn() as conn:
-        result = conn.execute(
-            """INSERT INTO foods (name, price, category) 
-            VALUES (%s, %s, %s) 
-            RETURNING id, name, price, category""", (food.name, food.price, food.category.lower())
-        ).fetchone()
-    return result
+    new_food = Food(name=food.name, price=food.price, category=food.category)
+    with SessionLocal() as session:
+        session.add(new_food)
+        session.commit()
+        session.refresh(new_food)
+    return new_food
 
 
 @app.get("/cheapfood")
+@app.get("/cheapfood", response_model=list[FoodRead])
 def get_cheapfood(max_price: int = 30000):
-    with get_conn() as conn:
-        result = conn.execute(
-            """
-            SELECT id, name, price, category 
-            FROM foods 
-            WHERE price < %s
-            ORDER BY id
-            """, (max_price,)
-        ).fetchall()
-    return result
+    query = select(Food).where(Food.price < max_price).order_by(Food.id)
+    with SessionLocal() as session:
+        return session.scalars(query).all()
