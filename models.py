@@ -1,4 +1,4 @@
-from sqlalchemy import CheckConstraint, Integer, Text
+from sqlalchemy import CheckConstraint, Integer, Text, Boolean, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -14,3 +14,5 @@ class Food(Base):
     name: Mapped[str] = mapped_column(Text)
     price: Mapped[int] = mapped_column(Integer)
     category: Mapped[str] = mapped_column(Text)
+    is_available: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+

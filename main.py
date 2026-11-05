@@ -13,6 +13,7 @@ class FoodCreate(BaseModel):
     name: str = Field(min_length=1)
     price: int = Field(ge=0)
     category: str = Field(min_length=1)
+    is_available: bool = Field(default=True)
 
     @field_validator("name", "category")
     @classmethod
@@ -32,6 +33,7 @@ class FoodRead(BaseModel):
     name: str
     price: int
     category: str
+    is_available: bool
 
 
 @app.get("/")
@@ -40,13 +42,14 @@ def home():
 
 
 @app.get("/foods", response_model=list[FoodRead])
-def list_foods(category: str | None = None):
+def list_foods(category: str | None = None, available: bool | None = None):
     if category:
         category = category.strip().lower()
     query = select(Food).order_by(Food.id)
     if category:
         query = query.where(Food.category == category)
-
+    if available is not None:
+        query = query.where(Food.is_available == available)
     with SessionLocal() as session:
         return session.scalars(query).all()
 
@@ -62,7 +65,7 @@ def get_food(food_id: int):
 
 @app.post("/foods", response_model=FoodRead, status_code=201)
 def add_food(food: FoodCreate):
-    new_food = Food(name=food.name, price=food.price, category=food.category)
+    new_food = Food(name=food.name, price=food.price, category=food.category, is_available=food.is_available)
     with SessionLocal() as session:
         session.add(new_food)
         session.commit()
