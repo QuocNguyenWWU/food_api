@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException , Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from database import SessionLocal
@@ -75,7 +75,7 @@ def add_food(food: FoodCreate):
 
 @app.get("/cheapfood")
 @app.get("/cheapfood", response_model=list[FoodRead])
-def get_cheapfood(max_price: int = 30000):
+def get_cheapfood(max_price: int = Query(default=30000, ge=0)):
     query = select(Food).where(Food.price < max_price).order_by(Food.id)
     with SessionLocal() as session:
         return session.scalars(query).all()
