@@ -1,6 +1,6 @@
 from sqlalchemy import select
-from database import SessionLocal
-from models import Food
+from app.database import SessionLocal
+from app.models import Food
 
 with SessionLocal() as session:
     foods = session.scalars(select(Food).where(Food.category == "drink").order_by(Food.id)).all()

@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from models import Food
-from schemas import FoodCreate
+from app.models import Food
+from app.schemas import FoodCreate
 
 
 def get_food(session: Session, food_id: int) -> Food | None:
