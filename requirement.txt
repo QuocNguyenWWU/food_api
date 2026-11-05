@@ -1,0 +1,7 @@
+fastapi[standard]
+sqlalchemy
+psycopg[binary]
+python-dotenv
+alembic
+pytest
+httpx
