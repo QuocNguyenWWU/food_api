@@ -1,17 +1,15 @@
-import os
-
 import pytest
-from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.config import settings
 from app.database import get_session
 from app.main import app
 from app.models import Base
 
-load_dotenv()
-test_url = os.environ["TEST_DATABASE_URL"].replace("postgresql://", "postgresql+psycopg://", 1)
+test_url = settings.sqlalchemy_test_url
+assert test_url is not None, "TEST_DATABASE_URL is missing in .env"
 assert "test" in test_url, "Tests must never run on the real database"
 
 engine = create_engine(test_url)
